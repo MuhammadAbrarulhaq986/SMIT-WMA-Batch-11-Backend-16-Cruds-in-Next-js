@@ -1,33 +1,75 @@
+
+import todosModel from "@/app/models/todos.model.js";
+import { connectToDatabase } from "@/utils/dbConnect";
 import { NextResponse } from "next/server";
 
-//* Simulating a database (replace with actual DB logic)
-let todos = [
-    { id: "1", title: "Learn Next.js", completed: false },
-    { id: "2", title: "Build a Next.js app", completed: false },
-];
+//* GET SINGLE TODO BY ID
+export const GET = async (request, { params }) => {
+    const { id } = await params;
+    try {
+        await connectToDatabase();
+        const todo = await todosModel.findById(id);
 
-//* GET: Fetch a specific todo by id
-export async function GET(request, { params }) {
-    const { id } = params; //* Extracting the id from params
-
-    const todo = todos.find((t) => t.id === id); //* Find todo by id
-    if (!todo) {
-        return NextResponse.json({ message: "Todo not found" }, { status: 404 });
+        if (!todo) {
+            return NextResponse.json({ message: "Todo Not Found" }, { status: 404 })
+        }
+        return NextResponse.json({ todo }, { status: 200 });
+    } catch (error) {
+        return NextResponse.json(
+            { message: "Failed to Fetch Todo", error: error.message },
+            { status: 500 }
+        );
     }
-    return NextResponse.json({ message: "Fetched todo successfully", todo }, { status: 200 });
-}
+};
 
-//* DELETE: Remove a specific todo by id
-export async function DELETE(request, { params }) {
-    const { id } = params; //* Extracting the id from params
+//* UPDATE A TODO BY ID
+export const PUT = async (request, { params }) => {
+    const { id } = await params;
+    try {
+        await connectToDatabase();
 
-    const todoIndex = todos.findIndex((t) => t.id === id); //* Find index of the todo
-    if (todoIndex === -1) {
-        return NextResponse.json({ message: "Todo not found" }, { status: 404 });
+        const body = await request.json();
+        const updatedTodo = await todosModel.findByIdAndUpdate(
+            id,
+            {
+                ...body,
+            },
+            { new: true }
+        );
+        if (!updatedTodo) {
+            return NextResponse.json({ message: "Todo Not Found" }, { status: 404 })
+        }
+
+        return NextResponse.json(
+            { message: "Todo Updated Successfully", todo: updatedTodo },
+            { status: 200 }
+        );
+    } catch (error) {
+        return NextResponse.json(
+            { message: "Faild to update todo", error: error.message },
+            { status: 500 }
+        );
     }
-    todos.splice(todoIndex, 1); //* Remove the todo from the array
-    return NextResponse.json(
-        { message: "Todo deleted successfully", todos }, //* Return the updated todos
-        { status: 200 }
-    );
+};
+
+//* DELETE TODO BY ID
+export default DELETE = async (request, { params }) => {
+    const { id } = await params;
+    try {
+        await connectToDatabase();
+        const deletedTodo = await todosModel.findByIdAndDelete(id);
+        if (!deletedTodo) {
+            return NextResponse.json({ message: "Todo Not Found" }, { status: 404 })
+        }
+        return NextResponse.json(
+            { message: "Todo Deleted Successfully", todo: deletedTodo },
+            { status: 200 }
+        );
+
+    } catch (error) {
+        return NextResponse.json(
+            { message: "Faild to Delete Todo", error: error.message },
+            { status: 500 }
+        );
+    }
 }

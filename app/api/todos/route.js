@@ -1,126 +1,76 @@
-import { NextResponse } from "next/server";
+import todosModel from "@/app/models/todos.model.js"; // Importing the Todos model
+import { connectToDatabase } from "@/utils/dbConnect"; // Utility function to connect to the database
+import { NextResponse } from "next/server"; // Helper for creating Next.js API responses
 
-//* Dummy data for demonstration
-let todos = []; //* This simulates a database
 
-//* GET: Fetch all todos
-export async function GET() {
-    return NextResponse.json(
-        {
-            message: "Fetched all todos successfully",
-            todos, //* Return the current list of todos
-        },
-        { status: 200 }
-    );
-}
-
-//* POST: Create a new todo
+// * CREATE A NEW TODO
 export async function POST(request) {
     try {
-        const body = await request.json(); //* Parse the request body
-        if (!body || !body.title) { //* Validate the request body
-            return NextResponse.json(
-                { message: "Invalid todo data. 'title' is required." },
-                { status: 400 }
-            );
-        }
+        const body = await request.json(); // Parse the JSON body of the request
+        await connectToDatabase(); // Establish database connection
 
-        const newTodo = { id: Date.now(), ...body }; //* Add a unique ID to each todo
-        todos.push(newTodo); //* Add the new todo to the list
+        // Validate the request body
+        if (!body.title)
+            return NextResponse.json(
+                { message: "Invalid todo title" },
+                { status: 400 } // Return 400 for bad request
+            );
+
+        // Create a new todo in the database
+        const newTodo = await todosModel.create({
+            title: body.title,
+        });
+
+        // Return a success response with the newly created todo
         return NextResponse.json(
-            {
-                message: "Todo added successfully",
-                todos, //* Return the updated list of todos
-            },
-            { status: 201 } //* 201 status for resource creation
+            { message: "New todo added", todo: newTodo },
+            { status: 201 }
         );
     } catch (error) {
+        // Return an error response
         return NextResponse.json(
-            { message: "Failed to add todo", error: error.message },
-            { status: 400 }
+            { message: "Failed to create todo", error: error.message },
+            { status: 500 }
         );
     }
 }
 
-//* PUT: Update a specific todo by ID
-export async function PUT(request) {
+// * GET ALL TODOS
+export async function GET() {
     try {
-        const body = await request.json(); //* Parse the request body
-        const { id, updatedTodo } = body; //* Extract ID and updated data
+        await connectToDatabase(); // Establish database connection
 
-        //* Check if ID and updatedTodo are provided
-        if (!id || !updatedTodo) {
-            return NextResponse.json(
-                { message: "Invalid data. 'id' and 'updatedTodo' are required." },
-                { status: 400 }
-            );
-        }
-
-        //* Find the todo by ID
-        const todoIndex = todos.findIndex((todo) => todo.id === id);
-        if (todoIndex === -1) {
-            return NextResponse.json(
-                { message: `Todo with ID ${id} not found.` },
-                { status: 404 }
-            );
-        }
-
-        todos[todoIndex] = { ...todos[todoIndex], ...updatedTodo }; //* Update the todo
-        return NextResponse.json(
-            {
-                message: "Todo updated successfully",
-                todos, //* Return the updated list
-            },
-            { status: 200 }
-        );
+        // Fetch all todos from the database
+        const todos = await todosModel.find({});
+        return NextResponse.json({ todos }, { status: 200 }); // Return todos with a 200 status
     } catch (error) {
+        // Return an error response
         return NextResponse.json(
-            { message: "Failed to update todo", error: error.message },
-            { status: 400 }
+            { message: "Failed to fetch todos", error: error.message },
+            { status: 500 }
         );
     }
 }
 
-//* DELETE: Remove a specific todo by ID or all todos
-export async function DELETE(request) {
+// * DELETE ALL TODOS
+export async function DELETE() {
     try {
-        const body = await request.json();
-        const { id } = body; //* Extract the ID from the request body
+        await connectToDatabase(); // Establish database connection
 
-        if (id) {
-            //* Find the todo by ID
-            const todoIndex = todos.findIndex((todo) => todo.id === id);
-            if (todoIndex === -1) {
-                return NextResponse.json(
-                    { message: `Todo with ID ${id} not found.` },
-                    { status: 404 }
-                );
-            }
-
-            //* Remove the todo
-            todos.splice(todoIndex, 1);
-            return NextResponse.json(
-                {
-                    message: `Todo with ID ${id} deleted successfully`,
-                    todos, //* Return the updated list
-                },
-                { status: 200 }
-            );
-        }
-
-        //* If no ID is provided, delete all todos
-        todos = [];
+        // Delete all todos from the database
+        const result = await todosModel.deleteMany({});
         return NextResponse.json(
             {
                 message: "All todos deleted successfully",
-                todos, //* Return the cleared list (empty)
+                deletedCount: result.deletedCount, // Return the count of deleted documents
             },
             { status: 200 }
         );
     } catch (error) {
+        // Return an error response
         return NextResponse.json(
             { message: "Failed to delete todos", error: error.message },
-            { status: 400 }
+            { status: 500 }
         );
     }
 }
